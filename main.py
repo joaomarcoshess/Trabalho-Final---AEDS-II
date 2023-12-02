@@ -1,43 +1,81 @@
+from dados_criptomoedas import dados  # Importa os dados das criptomoedas
 import networkx as nx
 import matplotlib.pyplot as plt
 
-# Criando um grafo
+class GrafoCriptomoedas:
+    def __init__(self, vertices):
+        self.V = vertices
+        self.grafo = []
+
+    def add_aresta(self, u, v, w):
+        self.grafo.append([u, v, w])
+
+    def encontrar(self, subset, i):
+        if subset[i] == -1:
+            return i
+        return self.encontrar(subset, subset[i])
+
+    def unir(self, subset, x, y):
+        x_raiz = self.encontrar(subset, x)
+        y_raiz = self.encontrar(subset, y)
+        subset[x_raiz] = y_raiz
+
+    def kruskal(self):
+        resultado = []
+        i, e = 0, 0
+        self.grafo = sorted(self.grafo, key=lambda item: item[2])
+        subset = [-1] * self.V
+
+        while e < self.V - 1:
+            u, v, w = self.grafo[i]
+            i = i + 1
+            x = self.encontrar(subset, u)
+            y = self.encontrar(subset, v)
+
+            if x != y:
+                e = e + 1
+                resultado.append([u, v, w])
+                self.unir(subset, x, y)
+
+        return resultado
+
+# Criando o grafo com os dados das criptomoedas
+num_criptos = len(dados)
+grafo_cripto = GrafoCriptomoedas(num_criptos)
+
+# Adicionando as arestas com base na diferença percentual dos valores de mercado das criptomoedas
+for i in range(num_criptos):
+    for j in range(i + 1, num_criptos):
+        moeda1 = dados[i]
+        moeda2 = dados[j]
+
+        nome_moeda1, valor_mercado1, mudanca_24h_1, _, _, _, _ = moeda1
+        nome_moeda2, valor_mercado2, mudanca_24h_2, _, _, _, _ = moeda2
+
+        peso_aresta = abs((valor_mercado1 - valor_mercado2) / valor_mercado1) * 100
+        grafo_cripto.add_aresta(i, j, peso_aresta)
+
+resultado_kruskal = grafo_cripto.kruskal()
+
+# Cria um grafo do NetworkX para visualização
 G = nx.Graph()
 
-# Adicionando componentes eletrônicos como nós
-componentes = ['Resistor', 'Capacitor', 'Transistor', 'Diodo', 'Fonte de Energia', 'Amplificador']
-G.add_nodes_from(componentes)
+# Adiciona as arestas e nós ao grafo do NetworkX
+for u, v, peso in resultado_kruskal:
+    nome_u, _, _, _, _, _, _ = dados[u]
+    nome_v, _, _, _, _, _, _ = dados[v]
+    G.add_edge(nome_u, nome_v, weight=peso)
 
-# Adicionando arestas com pesos (custos de conexão)
-edges_with_weights = [
-    ('Resistor', 'Capacitor', {'tipo': 'conexão', 'resistência': 3}),
-    ('Resistor', 'Transistor', {'tipo': 'conexão', 'resistência': 2}),
-    ('Capacitor', 'Transistor', {'tipo': 'conexão', 'resistência': 4}),
-    ('Transistor', 'Diodo', {'tipo': 'conexão', 'resistência': 5}),
-    ('Fonte de Energia', 'Resistor', {'tipo': 'alimentação', 'resistência': 1}),
-    ('Fonte de Energia', 'Amplificador', {'tipo': 'alimentação', 'resistência': 2}),
-    ('Amplificador', 'Transistor', {'tipo': 'sinal', 'resistência': 3}),
-    ('Amplificador', 'Diodo', {'tipo': 'sinal', 'resistência': 4}),
-]
+# Define o layout do grafo e plota
+pos = nx.spring_layout(G, seed=42)  # Definindo uma semente para a disposição dos nós
+plt.figure(figsize=(12, 10))  # Ajustando o tamanho da figura
 
-G.add_edges_from(edges_with_weights)
+# Desenha os nós com bordas e cor azul clara
+nx.draw(G, pos, with_labels=True, font_weight='bold', node_size=1200, node_color='skyblue', font_size=10, edgecolors='black')
 
-# Visualizando o grafo
-pos = nx.spring_layout(G)  # Layout para posicionar os nós
-nx.draw(G, pos, with_labels=True, node_color='lightblue', font_weight='bold')
-labels = nx.get_edge_attributes(G, 'resistência')
-nx.draw_networkx_edge_labels(G, pos, edge_labels=labels)
-plt.title('Grafo Representando Componentes Eletrônicos e Conexões')
-plt.show()
+# Adiciona labels para as arestas
+edge_labels = nx.get_edge_attributes(G, 'weight')
+nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels)
 
-# Algoritmo de Kruskal para encontrar a Árvore de Abrangência Mínima (MST)
-MST = nx.minimum_spanning_tree(G)
-
-# Visualizando a Árvore de Abrangência Mínima (MST)
-plt.figure()
-pos = nx.spring_layout(MST)
-nx.draw(MST, pos, with_labels=True, node_color='lightgreen', font_weight='bold')
-labels = nx.get_edge_attributes(MST, 'resistência')
-nx.draw_networkx_edge_labels(MST, pos, edge_labels=labels)
-plt.title('Árvore de Abrangência Mínima (MST) usando Kruskal para Design de Circuitos Eletrônicos')
+plt.title('Árvore Geradora Mínima das Criptomoedas')
 plt.show()
